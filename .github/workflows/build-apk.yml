@@ -1,2 +1,56 @@
-- name: Enable AndroidX
-  run: echo "android.useAndroidX=true" > project/gradle.properties
+name: Build 46 APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Find and extract project
+        run: |
+          mkdir -p project
+          ZIP_FILE=$(find . -maxdepth 2 -type f -iname '*.zip' | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ZIP project not found"
+            exit 1
+          fi
+          unzip -o "$ZIP_FILE" -d project
+
+      - name: Locate Android project
+        run: |
+          echo "Searching for Android project..."
+          find project -name settings.gradle -o -name settings.gradle.kts
+
+      - name: Enable AndroidX
+        run: |
+          echo "android.useAndroidX=true" >> project/gradle.properties
+          echo "android.enableJetifier=true" >> project/gradle.properties
+
+      - name: Build 46 APK
+        run: |
+          gradle -p project assembleDebug --stacktrace
+
+      - name: Upload 46 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: 46-debug-apk
+          path: project/app/build/outputs/apk/debug/app-debug.apk
